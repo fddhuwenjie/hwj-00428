@@ -1,5 +1,174 @@
 import { v4 as uuidv4 } from 'uuid'
-import type { Contract, Template, Reminder } from './types.js'
+import type { Contract, Template, Reminder, ContractVersion, AuditLogEntry, Signer } from './types.js'
+
+const mockUsers = ['张三', '李四', '王五', '赵六', '系统管理员', 'HR李经理', '总经理']
+
+function getRandomUser(): string {
+  return mockUsers[Math.floor(Math.random() * mockUsers.length)]
+}
+
+function generateAuditLogs(contract: Contract, templateName?: string): AuditLogEntry[] {
+  const logs: AuditLogEntry[] = []
+  const baseTime = new Date(contract.createdAt).getTime()
+
+  logs.push({
+    id: uuidv4(),
+    contractId: contract.id,
+    timestamp: contract.createdAt,
+    operator: getRandomUser(),
+    action: 'create',
+    details: templateName ? `基于模板"${templateName}"创建合同` : '创建新合同',
+    ip: '192.168.1.100'
+  })
+
+  if (contract.status === 'draft') {
+    const editTime = new Date(baseTime + 3600000).toISOString()
+    logs.push({
+      id: uuidv4(),
+      contractId: contract.id,
+      timestamp: editTime,
+      operator: getRandomUser(),
+      action: 'edit',
+      details: '编辑合同内容和截止日期',
+      ip: '192.168.1.101'
+    })
+  }
+
+  if (contract.status === 'pending') {
+    const editTime = new Date(baseTime + 7200000).toISOString()
+    logs.push({
+      id: uuidv4(),
+      contractId: contract.id,
+      timestamp: editTime,
+      operator: getRandomUser(),
+      action: 'edit',
+      details: '修改合同条款内容',
+      ip: '192.168.1.102'
+    })
+  }
+
+  if (contract.signingFlow) {
+    const initiateTime = contract.signingFlow.signers[0]?.signedAt || new Date(baseTime + 86400000).toISOString()
+    logs.push({
+      id: uuidv4(),
+      contractId: contract.id,
+      timestamp: initiateTime,
+      operator: getRandomUser(),
+      action: 'initiate_signing',
+      details: `发起签署流程，${contract.signingFlow.mode === 'sequential' ? '顺序签' : '同时签'}模式，共${contract.signingFlow.signers.length}位签署人`,
+      ip: '192.168.1.103'
+    })
+
+    contract.signingFlow.signers.forEach((signer) => {
+      if (signer.status === 'signed' && signer.signedAt) {
+        logs.push({
+          id: uuidv4(),
+          contractId: contract.id,
+          timestamp: signer.signedAt,
+          operator: signer.name,
+          action: 'sign',
+          details: `${signer.name}完成签署`,
+          ip: '192.168.1.104'
+        })
+      }
+      if (signer.status === 'rejected') {
+        logs.push({
+          id: uuidv4(),
+          contractId: contract.id,
+          timestamp: contract.updatedAt,
+          operator: signer.name,
+          action: 'reject',
+          details: `${signer.name}拒绝签署，原因：${signer.rejectedReason}`,
+          ip: '192.168.1.105'
+        })
+      }
+    })
+
+    if (contract.status === 'signing') {
+      const remindTime = new Date(baseTime + 172800000).toISOString()
+      logs.push({
+        id: uuidv4(),
+        contractId: contract.id,
+        timestamp: remindTime,
+        operator: getRandomUser(),
+        action: 'remind',
+        details: '发送催签通知给待签署人',
+        ip: '192.168.1.106'
+      })
+    }
+  }
+
+  if (contract.status === 'signed') {
+    const exportTime = new Date(baseTime + 604800000).toISOString()
+    logs.push({
+      id: uuidv4(),
+      contractId: contract.id,
+      timestamp: exportTime,
+      operator: getRandomUser(),
+      action: 'export_pdf',
+      details: '导出合同PDF文件',
+      ip: '192.168.1.107'
+    })
+  }
+
+  const verifyTime = new Date(baseTime + 259200000).toISOString()
+  logs.push({
+    id: uuidv4(),
+    contractId: contract.id,
+    timestamp: verifyTime,
+    operator: '访客',
+    action: 'verify',
+    details: `通过合同编号${contract.code}验证合同真实性`,
+    ip: '10.0.0.50'
+  })
+
+  return logs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+}
+
+function generateInitialVersions(contract: Contract): ContractVersion[] {
+  const versions: ContractVersion[] = []
+  const baseTime = new Date(contract.createdAt).getTime()
+
+  versions.push({
+    id: uuidv4(),
+    version: 'v1',
+    content: contract.content,
+    title: contract.title,
+    modifiedAt: contract.createdAt,
+    modifiedBy: getRandomUser(),
+    summary: '初始版本'
+  })
+
+  if (contract.status !== 'draft' || Math.random() > 0.5) {
+    const v2Content = contract.content.replace(/[一二三四五六七八九十]/g, (match) => {
+      const map: Record<string, string> = { '一': '1', '二': '2', '三': '3', '四': '4', '五': '5', '六': '6', '七': '7', '八': '8', '九': '9', '十': '10' }
+      return map[match] || match
+    })
+    versions.push({
+      id: uuidv4(),
+      version: 'v2',
+      content: v2Content !== contract.content ? v2Content : contract.content + '\n\n补充条款：本合同未尽事宜，双方协商解决。',
+      title: contract.title,
+      modifiedAt: new Date(baseTime + 3600000).toISOString(),
+      modifiedBy: getRandomUser(),
+      summary: '完善合同内容，添加补充条款'
+    })
+  }
+
+  if (contract.status === 'signed' || contract.status === 'signing') {
+    versions.push({
+      id: uuidv4(),
+      version: 'v3',
+      content: contract.content,
+      title: contract.title,
+      modifiedAt: new Date(baseTime + 7200000).toISOString(),
+      modifiedBy: getRandomUser(),
+      summary: '最终审阅版本，确认无误'
+    })
+  }
+
+  return versions
+}
 
 const templates: Template[] = [
   {
@@ -42,7 +211,7 @@ const signerId8 = uuidv4()
 const signerId9 = uuidv4()
 const signerId10 = uuidv4()
 
-const contracts: Contract[] = [
+const contractsData: Omit<Contract, 'versions' | 'currentVersion'>[] = [
   {
     id: uuidv4(),
     code: 'CT-20250115-0001',
@@ -209,6 +378,24 @@ const contracts: Contract[] = [
   }
 ]
 
+const contracts: Contract[] = contractsData.map((c, idx) => {
+  const versions = generateInitialVersions(c as Contract)
+  const template = templates.find(t => t.id === c.templateId)
+  return {
+    ...c,
+    versions,
+    currentVersion: versions[versions.length - 1].version
+  }
+})
+
+const auditLogs: AuditLogEntry[] = []
+
+contracts.forEach((c, idx) => {
+  const template = templates.find(t => t.id === c.templateId)
+  const logs = generateAuditLogs(c, template?.name)
+  auditLogs.push(...logs)
+})
+
 const reminders: Reminder[] = [
   {
     id: uuidv4(),
@@ -266,12 +453,59 @@ export function getContractByCode(code: string): Contract | undefined {
 
 export function addContract(contract: Contract): void {
   contracts.push(contract)
+  addAuditLog({
+    id: uuidv4(),
+    contractId: contract.id,
+    timestamp: contract.createdAt,
+    operator: '当前用户',
+    action: 'create',
+    details: '创建新合同',
+    ip: '127.0.0.1'
+  })
 }
 
-export function updateContract(id: string, updates: Partial<Contract>): Contract | undefined {
+export function updateContract(id: string, updates: Partial<Contract>, operator: string = '当前用户'): Contract | undefined {
   const idx = contracts.findIndex(c => c.id === id)
   if (idx === -1) return undefined
-  contracts[idx] = { ...contracts[idx], ...updates, updatedAt: new Date().toISOString() }
+
+  const oldContract = contracts[idx]
+  const now = new Date().toISOString()
+
+  let newVersions = [...oldContract.versions]
+  let newCurrentVersion = oldContract.currentVersion
+
+  if (updates.content !== undefined && updates.content !== oldContract.content) {
+    const nextVersionNum = oldContract.versions.length + 1
+    const newVersion: ContractVersion = {
+      id: uuidv4(),
+      version: `v${nextVersionNum}`,
+      content: updates.content,
+      title: updates.title || oldContract.title,
+      modifiedAt: now,
+      modifiedBy: operator,
+      summary: `编辑合同内容${updates.title ? '和标题' : ''}`
+    }
+    newVersions.push(newVersion)
+    newCurrentVersion = newVersion.version
+
+    addAuditLog({
+      id: uuidv4(),
+      contractId: id,
+      timestamp: now,
+      operator,
+      action: 'edit',
+      details: `更新合同内容，生成新版本${newVersion.version}`,
+      ip: '127.0.0.1'
+    })
+  }
+
+  contracts[idx] = {
+    ...oldContract,
+    ...updates,
+    versions: newVersions,
+    currentVersion: newCurrentVersion,
+    updatedAt: now
+  }
   return contracts[idx]
 }
 
@@ -280,6 +514,284 @@ export function deleteContract(id: string): boolean {
   if (idx === -1) return false
   contracts.splice(idx, 1)
   return true
+}
+
+export function getContractVersions(contractId: string): ContractVersion[] | undefined {
+  const contract = getContractById(contractId)
+  if (!contract) return undefined
+  return [...contract.versions].sort((a, b) =>
+    new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime()
+  )
+}
+
+export function getContractVersion(contractId: string, version: string): ContractVersion | undefined {
+  const contract = getContractById(contractId)
+  if (!contract) return undefined
+  return contract.versions.find(v => v.version === version)
+}
+
+export function rollbackToVersion(contractId: string, version: string, operator: string = '当前用户'): Contract | undefined {
+  const contract = getContractById(contractId)
+  if (!contract) return undefined
+
+  if (contract.status === 'signing' || contract.status === 'signed') {
+    return undefined
+  }
+
+  const targetVersion = contract.versions.find(v => v.version === version)
+  if (!targetVersion) return undefined
+
+  const now = new Date().toISOString()
+  const newVersionNum = contract.versions.length + 1
+  const newVersion: ContractVersion = {
+    id: uuidv4(),
+    version: `v${newVersionNum}`,
+    content: targetVersion.content,
+    title: targetVersion.title,
+    modifiedAt: now,
+    modifiedBy: operator,
+    summary: `回滚到版本${version}`
+  }
+
+  const idx = contracts.findIndex(c => c.id === contractId)
+  contracts[idx] = {
+    ...contract,
+    content: targetVersion.content,
+    title: targetVersion.title,
+    versions: [...contract.versions, newVersion],
+    currentVersion: newVersion.version,
+    updatedAt: now
+  }
+
+  addAuditLog({
+    id: uuidv4(),
+    contractId,
+    timestamp: now,
+    operator,
+    action: 'rollback',
+    details: `回滚合同到版本${version}，生成新版本${newVersion.version}`,
+    ip: '127.0.0.1'
+  })
+
+  return contracts[idx]
+}
+
+export function getAuditLogs(contractId: string): AuditLogEntry[] {
+  return auditLogs
+    .filter(log => log.contractId === contractId)
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+}
+
+export function addAuditLog(log: AuditLogEntry): void {
+  auditLogs.push(log)
+}
+
+export function batchCreateSigning(
+  contractIds: string[],
+  signers: { name: string; email: string }[],
+  mode: 'sequential' | 'parallel',
+  operator: string = '当前用户'
+): { success: string[]; failed: { id: string; reason: string }[] } {
+  const success: string[] = []
+  const failed: { id: string; reason: string }[] = []
+
+  contractIds.forEach(id => {
+    const contract = getContractById(id)
+    if (!contract) {
+      failed.push({ id, reason: '合同不存在' })
+      return
+    }
+    if (contract.status !== 'draft' && contract.status !== 'pending') {
+      failed.push({ id, reason: `当前状态(${contract.status})不可创建签署流程` })
+      return
+    }
+
+    const flowSigners: Signer[] = signers.map((s, i) => ({
+      id: uuidv4(),
+      name: s.name,
+      email: s.email,
+      status: 'pending',
+      order: i
+    }))
+
+    const signingFlow = {
+      id: uuidv4(),
+      mode,
+      signers: flowSigners,
+      currentStep: mode === 'sequential' ? 0 : undefined
+    }
+
+    const idx = contracts.findIndex(c => c.id === id)
+    const now = new Date().toISOString()
+    contracts[idx] = {
+      ...contracts[idx],
+      signingFlow,
+      status: 'signing' as const,
+      updatedAt: now
+    }
+
+    addAuditLog({
+      id: uuidv4(),
+      contractId: id,
+      timestamp: now,
+      operator,
+      action: 'batch_sign',
+      details: `批量发起签署流程，${mode === 'sequential' ? '顺序签' : '同时签'}模式，共${signers.length}位签署人`,
+      ip: '127.0.0.1'
+    })
+
+    success.push(id)
+  })
+
+  return { success, failed }
+}
+
+export function delegateSigning(
+  signerId: string,
+  delegateName: string,
+  delegateEmail: string,
+  operator: string = '当前用户'
+): { contract: Contract; newSignerId: string } | undefined {
+  const result = findSignerById(signerId)
+  if (!result) return undefined
+
+  const { contract, signer } = result
+
+  if (contract.status !== 'signing') return undefined
+  if (signer.status !== 'pending') return undefined
+  if (signer.delegateInfo) return undefined
+
+  const now = new Date().toISOString()
+  const newSignerId = uuidv4()
+
+  const delegateInfo = {
+    originalSignerId: signer.id,
+    originalSignerName: signer.name,
+    originalSignerEmail: signer.email,
+    delegateSignerId: newSignerId,
+    delegateSignerName: delegateName,
+    delegateSignerEmail: delegateEmail,
+    delegatedAt: now
+  }
+
+  const updatedSigners = contract.signingFlow!.signers.map(s => {
+    if (s.id === signer.id) {
+      return {
+        ...s,
+        status: 'delegated' as const,
+        delegatedTo: newSignerId,
+        delegateInfo
+      }
+    }
+    return s
+  })
+
+  updatedSigners.push({
+    id: newSignerId,
+    name: delegateName,
+    email: delegateEmail,
+    status: 'pending',
+    order: signer.order,
+    delegateInfo
+  })
+
+  const contractIdx = contracts.findIndex(c => c.id === contract.id)
+  contracts[contractIdx] = {
+    ...contract,
+    signingFlow: {
+      ...contract.signingFlow!,
+      signers: updatedSigners
+    },
+    updatedAt: now
+  }
+
+  addAuditLog({
+    id: uuidv4(),
+    contractId: contract.id,
+    timestamp: now,
+    operator,
+    action: 'delegate',
+    details: `${signer.name}委托${delegateName}(${delegateEmail})代为签署`,
+    ip: '127.0.0.1'
+  })
+
+  return { contract: contracts[contractIdx], newSignerId }
+}
+
+export function completeDelegateSigning(
+  delegateSignerId: string,
+  signatureImage: string
+): Contract | undefined {
+  const result = findSignerById(delegateSignerId)
+  if (!result) return undefined
+
+  const { contract, signer } = result
+
+  if (!signer.delegateInfo) return undefined
+  if (signer.status !== 'pending') return undefined
+
+  const now = new Date().toISOString()
+
+  const updatedSigners = contract.signingFlow!.signers.map(s => {
+    if (s.id === delegateSignerId) {
+      return {
+        ...s,
+        status: 'signed_by_delegate' as const,
+        signatureImage,
+        signedAt: now
+      }
+    }
+    if (s.id === signer.delegateInfo!.originalSignerId) {
+      return {
+        ...s,
+        status: 'signed_by_delegate' as const,
+        signatureImage,
+        signedAt: now
+      }
+    }
+    return s
+  })
+
+  const allSigned = updatedSigners.filter(s => !s.delegateInfo || s.id === delegateSignerId).every(s =>
+    s.status === 'signed' || s.status === 'signed_by_delegate'
+  )
+
+  let nextCurrentStep = contract.signingFlow!.currentStep
+  if (contract.signingFlow!.mode === 'sequential' && !allSigned) {
+    nextCurrentStep = (nextCurrentStep ?? 0) + 1
+  }
+
+  const updates: Record<string, any> = {
+    signingFlow: {
+      ...contract.signingFlow!,
+      signers: updatedSigners,
+      currentStep: allSigned ? updatedSigners.length - 1 : nextCurrentStep
+    }
+  }
+
+  if (allSigned) {
+    updates.status = 'signed'
+    updates.signedAt = now
+  }
+
+  const contractIdx = contracts.findIndex(c => c.id === contract.id)
+  contracts[contractIdx] = {
+    ...contracts[contractIdx],
+    ...updates,
+    updatedAt: now
+  }
+
+  addAuditLog({
+    id: uuidv4(),
+    contractId: contract.id,
+    timestamp: now,
+    operator: signer.name,
+    action: 'sign',
+    details: `${signer.delegateInfo!.delegateSignerName}代${signer.delegateInfo!.originalSignerName}完成签署`,
+    ip: '127.0.0.1'
+  })
+
+  return contracts[contractIdx]
 }
 
 export function getTemplates(): Template[] {
@@ -334,12 +846,12 @@ export function markReminderRead(id: string): Reminder | undefined {
   return reminders[idx]
 }
 
-export function findSignerById(signerId: string): { contract: Contract; signer: Contract['signingFlow'] extends object ? Contract['signingFlow']['signers'][number] : never } | undefined {
+export function findSignerById(signerId: string): { contract: Contract; signer: Signer } | undefined {
   for (const contract of contracts) {
     if (contract.signingFlow) {
       const signer = contract.signingFlow.signers.find(s => s.id === signerId)
       if (signer) {
-        return { contract, signer } as any
+        return { contract, signer }
       }
     }
   }

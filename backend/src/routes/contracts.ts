@@ -1,6 +1,10 @@
 import { Router, type Request, type Response } from 'express'
 import { v4 as uuidv4 } from 'uuid'
-import { getContracts, getContractById, getContractByCode, addContract, updateContract, deleteContract, addReminder } from '../store.js'
+import {
+  getContracts, getContractById, getContractByCode, addContract, updateContract, deleteContract,
+  addReminder, getContractVersions, getContractVersion, rollbackToVersion,
+  getAuditLogs, batchCreateSigning, addAuditLog
+} from '../store.js'
 import type { Contract, Signer } from '../types.js'
 
 const router = Router()
@@ -56,6 +60,16 @@ router.post('/', (req: Request, res: Response) => {
     status: 'draft',
     templateId,
     variables,
+    versions: [{
+      id: uuidv4(),
+      version: 'v1',
+      content,
+      title,
+      modifiedAt: now,
+      modifiedBy: '当前用户',
+      summary: '初始版本'
+    }],
+    currentVersion: 'v1',
     createdAt: now,
     updatedAt: now,
     deadline
@@ -169,6 +183,72 @@ router.post('/:id/remind', (req: Request, res: Response) => {
     })
   )
   res.json(messages)
+})
+
+router.get('/:id/versions', (req: Request, res: Response) => {
+  const versions = getContractVersions(req.params.id)
+  if (!versions) {
+    res.status(404).json({ error: '合同不存在' })
+    return
+  }
+  res.json(versions)
+})
+
+router.get('/:id/versions/:version', (req: Request, res: Response) => {
+  const version = getContractVersion(req.params.id, req.params.version)
+  if (!version) {
+    res.status(404).json({ error: '版本不存在' })
+    return
+  }
+  res.json(version)
+})
+
+router.post('/:id/versions/:version/rollback', (req: Request, res: Response) => {
+  const contract = getContractById(req.params.id)
+  if (!contract) {
+    res.status(404).json({ error: '合同不存在' })
+    return
+  }
+  if (contract.status === 'signing' || contract.status === 'signed') {
+    res.status(400).json({ error: '已进入签署流程的合同不允许回滚' })
+    return
+  }
+  const updated = rollbackToVersion(req.params.id, req.params.version)
+  if (!updated) {
+    res.status(400).json({ error: '回滚失败' })
+    return
+  }
+  res.json(updated)
+})
+
+router.get('/:id/audit-log', (req: Request, res: Response) => {
+  const contract = getContractById(req.params.id)
+  if (!contract) {
+    res.status(404).json({ error: '合同不存在' })
+    return
+  }
+  const logs = getAuditLogs(req.params.id)
+  res.json(logs)
+})
+
+router.post('/batch-sign', (req: Request, res: Response) => {
+  const { contractIds, signers, mode }: {
+    contractIds: string[]
+    signers: { name: string; email: string }[]
+    mode: 'sequential' | 'parallel'
+  } = req.body
+
+  if (!contractIds || !Array.isArray(contractIds) || contractIds.length === 0) {
+    res.status(400).json({ error: '请选择至少一份合同' })
+    return
+  }
+  if (!signers || !Array.isArray(signers) || signers.length === 0) {
+    res.status(400).json({ error: '签署人不能为空' })
+    return
+  }
+
+  const result = batchCreateSigning(contractIds, signers, mode)
+  res.json(result)
 })
 
 export default router

@@ -97,6 +97,16 @@ router.post('/:id/generate', (req: Request, res: Response) => {
     status: 'draft',
     templateId: template.id,
     variables,
+    versions: [{
+      id: uuidv4(),
+      version: 'v1',
+      content,
+      title,
+      modifiedAt: now,
+      modifiedBy: '当前用户',
+      summary: '初始版本（基于模板生成）'
+    }],
+    currentVersion: 'v1',
     createdAt: now,
     updatedAt: now,
     deadline

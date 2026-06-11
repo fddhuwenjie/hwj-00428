@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Contract, Template, Reminder, DashboardStats, SigningFlow, TrendItem, TemplateRankingItem, Signer } from './types'
+import type { Contract, Template, Reminder, DashboardStats, SigningFlow, TrendItem, TemplateRankingItem, Signer, ContractVersion, AuditLogEntry } from './types'
 
 const api = axios.create({
   baseURL: '/api',
@@ -24,12 +24,20 @@ export const contractApi = {
   createSigning: (id: string, data: { signers: { name: string; email: string }[]; mode: 'sequential' | 'parallel' }) => api.post(`/contracts/${id}/signing`, data) as Promise<Contract>,
   getSigning: (id: string) => api.get(`/contracts/${id}/signing`) as Promise<SigningFlow>,
   remind: (id: string) => api.post(`/contracts/${id}/remind`) as Promise<Reminder[]>,
+  getVersions: (id: string) => api.get(`/contracts/${id}/versions`) as Promise<ContractVersion[]>,
+  getVersion: (id: string, version: string) => api.get(`/contracts/${id}/versions/${version}`) as Promise<ContractVersion>,
+  rollbackToVersion: (id: string, version: string) => api.post(`/contracts/${id}/versions/${version}/rollback`) as Promise<Contract>,
+  getAuditLog: (id: string) => api.get(`/contracts/${id}/audit-log`) as Promise<AuditLogEntry[]>,
+  batchSign: (data: { contractIds: string[]; signers: { name: string; email: string }[]; mode: 'sequential' | 'parallel' }) =>
+    api.post('/contracts/batch-sign', data) as Promise<{ success: string[]; failed: { id: string; reason: string }[] }>,
 }
 
 export const signingApi = {
   sign: (signerId: string, data: { signatureImage: string }) => api.post(`/signing/${signerId}/sign`, data) as Promise<Contract>,
   reject: (signerId: string, data: { reason: string }) => api.post(`/signing/${signerId}/reject`, data) as Promise<Contract>,
   getSigner: (signerId: string) => api.get(`/signing/${signerId}`) as Promise<{ signer: Signer; contract: Contract }>,
+  delegate: (signerId: string, data: { delegateName: string; delegateEmail: string }) =>
+    api.post(`/signing/${signerId}/delegate`, data) as Promise<{ success: boolean; message: string; newSignerId: string; contract: Contract }>,
 }
 
 export const templateApi = {
