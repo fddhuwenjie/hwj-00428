@@ -5,9 +5,14 @@ import templatesRouter from './routes/templates.js'
 import signingRouter from './routes/signing.js'
 import remindersRouter from './routes/reminders.js'
 import statsRouter from './routes/stats.js'
+import { getDb } from './db.js'
+import { seedDatabase } from './seed.js'
 
 const app = express()
 const PORT = 8428
+
+getDb()
+seedDatabase()
 
 app.use(cors())
 app.use(express.json())

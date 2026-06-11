@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Eye, CheckSquare, Square, Send } from 'lucide-react'
-import { useStore } from '@/store'
+import { useContractContext } from '@/contexts/ContractContext'
 import { contractApi } from '@/api'
 import BatchSignModal from '@/components/BatchSignModal'
 import type { ContractStatus, Contract } from '@/types'
@@ -21,7 +21,7 @@ const statusColors: Record<ContractStatus, string> = {
 
 export default function Contracts() {
   const navigate = useNavigate()
-  const { contracts, setContracts } = useStore()
+  const { contracts, setContracts } = useContractContext()
   const [filter, setFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [selectedIds, setSelectedIds] = useState<string[]>([])

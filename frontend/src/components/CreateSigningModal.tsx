@@ -49,8 +49,6 @@ export default function CreateSigningModal({ contractId, onClose, onSuccess }: C
         signers: validSigners,
       })
       onSuccess()
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '创建签署流程失败')
     } finally {
       setSubmitting(false)
     }

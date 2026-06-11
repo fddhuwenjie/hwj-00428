@@ -1,18 +1,112 @@
-import axios from 'axios'
+import axios, { AxiosError, AxiosRequestConfig } from 'axios'
 import type { Contract, Template, Reminder, DashboardStats, SigningFlow, TrendItem, TemplateRankingItem, Signer, ContractVersion, AuditLogEntry } from './types'
+
+const MAX_RETRIES = 2
+const RETRY_DELAY = 1000
+
+const pendingRequests = new Map<string, AbortController>()
+
+function generateRequestKey(config: AxiosRequestConfig): string {
+  return `${config.method}-${config.url}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
 
 const api = axios.create({
   baseURL: '/api',
   timeout: 15000,
 })
 
+api.interceptors.request.use(
+  (config) => {
+    const controller = new AbortController()
+    const requestKey = generateRequestKey(config)
+    ;(config as any).requestKey = requestKey
+    pendingRequests.set(requestKey, controller)
+    config.signal = controller.signal
+
+    config.headers['X-Request-Timestamp'] = Date.now().toString()
+
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
 api.interceptors.response.use(
-  (res) => res.data,
-  (err) => {
-    const msg = err.response?.data?.message || err.message || '请求失败'
+  (res) => {
+    const requestKey = (res.config as any).requestKey
+    if (requestKey) {
+      pendingRequests.delete(requestKey)
+    }
+    return res.data
+  },
+  async (error: AxiosError) => {
+    const config = error.config as any
+    const requestKey = config?.requestKey
+
+    if (requestKey) {
+      pendingRequests.delete(requestKey)
+    }
+
+    if (error.code === 'ERR_CANCELED') {
+      return Promise.reject(new Error('请求已取消'))
+    }
+
+    if (config && !config._retryCount) {
+      config._retryCount = 0
+    }
+
+    const isNetworkError = error.code === 'ERR_NETWORK' || !error.response
+    const shouldRetry = isNetworkError && config && config._retryCount < MAX_RETRIES
+
+    if (shouldRetry) {
+      config._retryCount += 1
+      await sleep(RETRY_DELAY)
+      return api(config)
+    }
+
+    const msg = (error.response?.data as any)?.message || error.message || '请求失败'
+
+    if (typeof window !== 'undefined' && (window as any).__toastError) {
+      (window as any).__toastError(msg)
+    }
+
     return Promise.reject(new Error(msg))
   }
 )
+
+export function cancelAllRequests(): void {
+  pendingRequests.forEach((controller) => {
+    controller.abort()
+  })
+  pendingRequests.clear()
+}
+
+export function createRequestGroup() {
+  const requestKeys: string[] = []
+
+  const trackRequest = <T>(promise: Promise<T>, key: string): Promise<T> => {
+    requestKeys.push(key)
+    return promise
+  }
+
+  const cancelAll = () => {
+    requestKeys.forEach((key) => {
+      const controller = pendingRequests.get(key)
+      if (controller) {
+        controller.abort()
+        pendingRequests.delete(key)
+      }
+    })
+    requestKeys.length = 0
+  }
+
+  return { trackRequest, cancelAll }
+}
 
 export const contractApi = {
   list: (params?: { status?: string }) => api.get('/contracts', { params }) as Promise<Contract[]>,

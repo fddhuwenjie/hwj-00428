@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { contractApi } from '@/api'
-import { useStore } from '@/store'
+import { useContractContext } from '@/contexts/ContractContext'
 import { exportToPdf } from '@/components/PdfExporter'
 import CreateSigningModal from '@/components/CreateSigningModal'
 import VersionDiffModal from '@/components/VersionDiffModal'
@@ -77,7 +77,7 @@ type TabType = 'content' | 'versions' | 'audit'
 export default function ContractDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const updateContract = useStore((s) => s.updateContract)
+  const { updateContract } = useContractContext()
   const [contract, setContract] = useState<Contract | null>(null)
   const [activeTab, setActiveTab] = useState<TabType>('content')
   const [showModal, setShowModal] = useState(false)
@@ -111,8 +111,6 @@ export default function ContractDetail() {
     try {
       const data = await contractApi.getVersions(id)
       setVersions(data)
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '加载版本失败')
     } finally {
       setLoadingVersions(false)
     }
@@ -124,8 +122,6 @@ export default function ContractDetail() {
     try {
       const data = await contractApi.getAuditLog(id)
       setAuditLogs(data)
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '加载审计日志失败')
     } finally {
       setLoadingAudit(false)
     }
@@ -146,8 +142,6 @@ export default function ContractDetail() {
     try {
       await contractApi.remind(id)
       alert('催签通知已发送')
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '催签失败')
     } finally {
       setReminding(false)
     }
@@ -178,8 +172,6 @@ export default function ContractDetail() {
       updateContract(id, updated)
       await loadVersions()
       alert(`已成功回滚到版本 ${version}`)
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '回滚失败')
     } finally {
       setRollbackLoading(null)
     }

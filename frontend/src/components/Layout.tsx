@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { LayoutDashboard, FileText, FileCode, Bell } from 'lucide-react'
-import { useStore } from '@/store'
+import { useSigningContext } from '@/contexts/SigningContext'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: '仪表盘' },
@@ -10,7 +10,8 @@ const navItems = [
 ]
 
 export default function Layout() {
-  const unreadCount = useStore((s) => s.unreadReminderCount())
+  const { unreadReminderCount } = useSigningContext()
+  const unreadCount = unreadReminderCount()
 
   return (
     <div className="flex min-h-screen">

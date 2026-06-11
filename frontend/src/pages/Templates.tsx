@@ -1,13 +1,13 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, FileText } from 'lucide-react'
-import { useStore } from '@/store'
+import { useContractContext } from '@/contexts/ContractContext'
 import { templateApi } from '@/api'
 import type { Template } from '@/types'
 
 export default function Templates() {
   const navigate = useNavigate()
-  const { templates, setTemplates } = useStore()
+  const { templates, setTemplates } = useContractContext()
 
   useEffect(() => {
     templateApi.list().then(setTemplates).catch(() => {})

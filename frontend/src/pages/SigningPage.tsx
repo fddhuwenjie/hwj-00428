@@ -47,8 +47,6 @@ export default function SigningPage() {
       await signingApi.sign(signerId, { signatureImage: signatureBase64 })
       alert('签署成功')
       navigate(`/contracts/${contractId}`)
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '签署失败')
     } finally {
       setSubmitting(false)
     }
@@ -61,8 +59,6 @@ export default function SigningPage() {
       await signingApi.reject(signerId, { reason: rejectReason })
       alert('已拒绝签署')
       navigate(`/contracts/${contractId}`)
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '操作失败')
     } finally {
       setSubmitting(false)
     }
@@ -84,8 +80,6 @@ export default function SigningPage() {
         delegateEmail: delegateEmail.trim(),
       })
       setDelegateSuccess({ message: result.message, newSignerId: result.newSignerId })
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '委托失败')
     } finally {
       setSubmitting(false)
     }

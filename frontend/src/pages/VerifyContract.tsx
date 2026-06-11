@@ -16,13 +16,10 @@ export default function VerifyContract() {
   const handleVerify = async () => {
     if (!code.trim()) { alert('请输入合同编号'); return }
     setLoading(true)
-    setError('')
     setContract(null)
     try {
       const data = await contractApi.verify(code.trim())
       setContract(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '验证失败')
     } finally {
       setLoading(false)
     }

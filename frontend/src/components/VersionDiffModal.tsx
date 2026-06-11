@@ -41,8 +41,6 @@ export default function VersionDiffModal({ contractId, versions, onClose }: Vers
       setV2Content(v2.content)
       const diffResult = computeDiff(v1.content, v2.content)
       setDiff(diffResult)
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '对比失败')
     } finally {
       setLoading(false)
     }

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { FileText, CheckCircle, XCircle, Clock } from 'lucide-react'
-import { useStore } from '@/store'
+import { useContractContext } from '@/contexts/ContractContext'
 import { statsApi } from '@/api'
 
 const statCards = [
@@ -12,7 +12,7 @@ const statCards = [
 ]
 
 export default function Dashboard() {
-  const { dashboardStats, trendData, templateRanking, setDashboardStats, setTrendData, setTemplateRanking } = useStore()
+  const { dashboardStats, trendData, templateRanking, setDashboardStats, setTrendData, setTemplateRanking } = useContractContext()
 
   useEffect(() => {
     statsApi.dashboard().then(setDashboardStats).catch(() => {})

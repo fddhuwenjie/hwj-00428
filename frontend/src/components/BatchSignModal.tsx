@@ -57,8 +57,6 @@ export default function BatchSignModal({ selectedContractIds, onClose, onSuccess
       if (res.success.length > 0) {
         onSuccess()
       }
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '批量发起签署失败')
     } finally {
       setSubmitting(false)
     }

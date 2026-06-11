@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Save } from 'lucide-react'
 import { templateApi } from '@/api'
-import { useStore } from '@/store'
+import { useContractContext } from '@/contexts/ContractContext'
 
 function extractVariables(content: string): string[] {
   const matches = content.match(/\{\{(\w+)\}\}/g)
@@ -12,7 +12,7 @@ function extractVariables(content: string): string[] {
 
 export default function TemplateForm() {
   const navigate = useNavigate()
-  const addTemplate = useStore((s) => s.addTemplate)
+  const { addTemplate } = useContractContext()
   const [name, setName] = useState('')
   const [content, setContent] = useState('')
   const [saving, setSaving] = useState(false)
@@ -26,8 +26,6 @@ export default function TemplateForm() {
       const data = await templateApi.create({ name, content, variables })
       addTemplate(data)
       navigate('/templates')
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '保存失败')
     } finally {
       setSaving(false)
     }

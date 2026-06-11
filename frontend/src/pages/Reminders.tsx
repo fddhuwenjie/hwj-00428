@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Bell, AlertTriangle, Clock, CheckCircle, RefreshCw } from 'lucide-react'
-import { useStore } from '@/store'
+import { useSigningContext } from '@/contexts/SigningContext'
 import { reminderApi, contractApi } from '@/api'
 import type { Reminder } from '@/types'
 
@@ -17,7 +17,7 @@ const typeLabels = {
 }
 
 export default function Reminders() {
-  const { reminders, setReminders, markReminderRead } = useStore()
+  const { reminders, setReminders, markReminderRead } = useSigningContext()
   const [contractTitles, setContractTitles] = useState<Record<string, string>>({})
 
   useEffect(() => {
@@ -33,21 +33,13 @@ export default function Reminders() {
   }, [setReminders])
 
   const handleMarkRead = async (id: string) => {
-    try {
-      await reminderApi.markRead(id)
-      markReminderRead(id)
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '操作失败')
-    }
+    await reminderApi.markRead(id)
+    markReminderRead(id)
   }
 
   const handleRemind = async (contractId: string) => {
-    try {
-      await contractApi.remind(contractId)
-      alert('催签通知已发送')
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '催签失败')
-    }
+    await contractApi.remind(contractId)
+    alert('催签通知已发送')
   }
 
   const unread = reminders.filter((r) => !r.read)

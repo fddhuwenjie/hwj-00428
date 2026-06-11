@@ -3,13 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { FileText } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { templateApi, contractApi } from '@/api'
-import { useStore } from '@/store'
+import { useContractContext } from '@/contexts/ContractContext'
 import type { Template } from '@/types'
 
 export default function GenerateContract() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const addContract = useStore((s) => s.addContract)
+  const { addContract } = useContractContext()
   const [template, setTemplate] = useState<Template | null>(null)
   const [title, setTitle] = useState('')
   const [variables, setVariables] = useState<Record<string, string>>({})
@@ -50,8 +50,6 @@ export default function GenerateContract() {
       const data = await templateApi.generate(id, { title, variables, deadline: deadline || undefined })
       addContract(data)
       navigate(`/contracts/${data.id}`)
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '生成失败')
     } finally {
       setSaving(false)
     }

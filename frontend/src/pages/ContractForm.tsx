@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Save, Send } from 'lucide-react'
 import { contractApi } from '@/api'
-import { useStore } from '@/store'
+import { useContractContext } from '@/contexts/ContractContext'
 import ReactMarkdown from 'react-markdown'
 
 export default function ContractForm() {
   const navigate = useNavigate()
-  const addContract = useStore((s) => s.addContract)
+  const { addContract } = useContractContext()
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [deadline, setDeadline] = useState('')
@@ -21,8 +21,6 @@ export default function ContractForm() {
       const data = await contractApi.create({ title, content, deadline: deadline || undefined })
       addContract(data)
       navigate(`/contracts/${data.id}`)
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '保存失败')
     } finally {
       setSaving(false)
     }
